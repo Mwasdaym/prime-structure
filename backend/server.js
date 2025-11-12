@@ -5,32 +5,24 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// VPS Security Middleware
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://giftedtech.co.ke', 'http://localhost:3000'] 
+    : '*',
+  credentials: true
+}));
+
 app.use(express.json());
 
-// Database connection
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/primevideo');
-    console.log('✅ MongoDB Connected');
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
-  }
-};
-
-// Routes
+// VPS-specific routes
 app.get('/', (req, res) => {
   res.json({
-    message: '🎬 Prime Video Clone API',
+    message: '🎬 Prime Video Clone - VPS Edition',
     version: '1.0.0',
-    status: 'running',
-    endpoints: {
-      auth: '/api/auth',
-      movies: '/api/movies',
-      users: '/api/users'
-    }
+    hosting: 'VPS',
+    status: 'Production Ready',
+    domain: 'movieapi.giftedtech.co.ke'
   });
 });
 
@@ -38,18 +30,26 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
     service: 'prime-video-api',
+    server: 'VPS',
     timestamp: new Date().toISOString()
   });
 });
 
-// Start server
+// Database connection with VPS retry logic
+const connectDBWithRetry = () => {
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/primevideo')
+    .then(() => console.log('✅ MongoDB Connected on VPS'))
+    .catch(err => {
+      console.error('❌ MongoDB connection failed, retrying in 5 seconds...', err);
+      setTimeout(connectDBWithRetry, 5000);
+    });
+};
+
+connectDBWithRetry();
+
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🎬 Prime Video Server running on port ${PORT}`);
-    console.log(`📍 API URL: http://localhost:${PORT}`);
-  });
+app.listen(PORT, HOST, () => {
+  console.log(`🎬 Prime Video VPS Server running on ${HOST}:${PORT}`);
 });
-
-module.exports = app;
